@@ -13,7 +13,7 @@ class VJoyDevice(object):
 		self.rID=rID
 		self._sdk=_sdk
 		self._vj=self._sdk._vj
-		
+
 		if data:
 			self.data = data
 		else:
@@ -74,4 +74,15 @@ class VJoyDevice(object):
 		# free up the controller before losing access
 		self._sdk.RelinquishVJD(self.rID)
 		
+		
+	def ffb_supported(self):
+		"""Returns True if device is FFB capable"""
+		return self._sdk.vJoyFfbCap() and self._sdk.IsDeviceFfb(self.rID)
 	
+	def ffb_effect_supported(self,effect):
+		"""Returns True if device supports effect usage type"""
+		return self._sdk.IsDeviceFfbEffect(self.rID,effect)
+	
+	def ffb_register_callback(self,callback):
+		"""Registers a callback for FFB data for this device"""
+		self._sdk.FfbRegisterGenCB(callback,self.rID)
