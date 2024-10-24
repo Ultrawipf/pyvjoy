@@ -116,15 +116,6 @@ def SetContPov(PovValue, rID, PovID):
 
 
 
-def SetBtn(state,rID,buttonID):
-	"""Sets the state of vJoy Button to on or off.  SetBtn(state,rID,buttonID)"""
-	result = _vj.SetBtn(state,rID,buttonID)
-	if result == 0:
-		raise vJoyButtonException()
-	else:
-		return True
-
-
 def ResetVJD(rID):
 	"""Reset all axes and buttons to default for specified vJoy Device"""
 	return _vj.ResetVJD(rID)
