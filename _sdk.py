@@ -66,6 +66,7 @@ def RelinquishVJD(rID):
 	if result == 0:
 		raise vJoyFailedToRelinquishException()
 	else:
+		FfbRemoveCB(rID) # Also delete FFB callback if present
 		return True
 
 
@@ -184,3 +185,236 @@ class _JOYSTICK_POSITION_V2(Structure):
 		
  
 
+# FFB:
+class PacketStruct(Structure):
+	def to_dict(self):
+		return dict((field, getattr(self, field)) for field, _ in self._fields_ if field)
+	def keys(self):
+		return [field for field, _ in self._fields_ if field]
+	def __getitem__(self,key):
+		return getattr(self, key)
+	def values(self):
+		return [getattr(self, field) for field, _ in self._fields_ if field]
+	def __str__(self):
+		return str(self.to_dict())
+
+class _FFB_DATA(Structure):
+	_fields_ = [
+	('size', c_ulong),
+	('cmd', c_ulong),
+	('data', c_void_p),
+	]
+
+class _FFB_EFFECT(PacketStruct):
+	_pack_ = 1
+	_fields_ = [
+		('EffectBlockIndex',c_uint32),
+		('EffectType',c_uint32),
+		('Duration',c_uint16),
+		('TriggerRpt',c_uint16),
+		('SamplePrd',c_uint16),
+		('Gain',c_ubyte),
+		('TriggerBtn',c_ubyte),
+		('Polar',c_uint32), # Bool but 4 bytes padded
+		('DirX',c_byte), # Polar direction or dirX depending on Polar bool
+		('DirY',c_byte),
+	]
+
+
+class _FFB_EFF_RAMP(PacketStruct):
+	_pack_ = 1
+	_fields_ = [
+		('EffectBlockIndex',c_uint32),
+		('Start',c_int16),
+		('',c_int16), # Reserved padding
+		('End',c_int16),
+	]
+
+
+class _FFB_EFF_OP(PacketStruct):
+	_pack_ = 1
+	_fields_ = [
+		('EffectBlockIndex',c_uint32),
+		('EffectOp',c_uint32),
+		('LoopCount',c_uint32),
+	]
+
+
+class _FFB_EFF_PERIOD(PacketStruct):
+	_pack_ = 1
+	_fields_ = [
+		('EffectBlockIndex',c_uint32),
+		('Magnitude',c_uint32),
+		('Offset',c_int16),
+		('',c_int16), # Padding
+		('Phase',c_uint32),
+		('Period',c_uint32),
+	]
+
+
+class _FFB_EFF_COND(PacketStruct):
+	_pack_ = 1
+	_fields_ = [
+		('EffectBlockIndex',c_uint32),
+		('isY',c_uint32),
+		('CenterPointOffset',c_int16),
+		('',c_int16), # Padding
+		('PosCoeff',c_int16),
+		('',c_int16), # Padding
+		('NegCoeff',c_int16),
+		('',c_int16), # Padding
+		('PosSatur',c_uint32),
+		('NegSatur',c_uint32),
+		('DeadBand',c_int32),
+	]
+
+
+class _FFB_EFF_ENVLP(PacketStruct):
+	_pack_ = 1
+	_fields_ = [
+		('EffectBlockIndex',c_uint32),
+		('AttackLevel',c_uint32),
+		('FadeLevel',c_uint32),
+		('AttackTime',c_uint32),
+		('FadeTime',c_uint32),
+	]
+
+
+class _FFB_EFF_CONST(PacketStruct):
+	_pack_ = 1
+	_fields_ = [
+		('EffectBlockIndex',c_uint32),
+		('Magnitude',c_int16),
+	]
+
+
+class FFBCallback():
+	"""Helper class for FFB callbacks between python and vjoy"""
+	vJoy_ffb_callback = None # Workaround to store callback functions
+	
+	def __init__(self):
+		self.callbacks = {}
+		self.internalcbtype = CFUNCTYPE(None,_FFB_DATA, c_void_p)
+
+		# Callback can not be a member function
+		def ffbCallback(ffbpacket,userdata):
+			"""Helper callback passed to vjoy. Will call previously registered python function with parsed FFB data"""
+			parsedData,reptype,devid = FFBCallback._parse_ffb_packet(ffbpacket)
+			if parsedData and (devid in self.callbacks):
+				# packet,typename = self.packet_to_dict(reptype,parsedData)
+				self.callbacks[devid](parsedData,reptype)
+			
+		self._internalcb = self.internalcbtype(ffbCallback)
+
+	def addCallback(self,callback,rID):
+		"""Add callback to rID device. Gets called when FFB data for rID is received"""
+		self.callbacks[rID] = callback
+
+	def removeCallback(self,rID):
+		"""Remove rID from internal callback dict"""
+		if rID in self.callbacks:
+			del self.callbacks[rID]
+
+	@staticmethod
+	def _parse_ffb_packet(ffbpacket : _FFB_DATA):
+		"""Helper function parse ffb data using vjoy functions"""
+		t = c_int(0)
+		res = _vj.Ffb_h_Type(ffbpacket, pointer(t))
+		reptype = t.value
+		if res != 0: # Invalid packet
+			return None,0,0
+		
+		devid = c_int(0)
+		_vj.Ffb_h_DeviceID(ffbpacket,pointer(devid)) # ID of vjoy device
+
+		parsedPacket = None
+
+		# Parse report type
+		if reptype == PT_CTRLREP: # Control rep
+			ctrl = c_int(0)
+			if _vj.Ffb_h_DevCtrl(ffbpacket,pointer(ctrl)) == 0:
+				parsedPacket = ctrl.value
+
+		elif reptype == PT_EFFREP: # Set effect rep
+			tstruct = _FFB_EFFECT()
+			if _vj.Ffb_h_Eff_Report(ffbpacket,pointer(tstruct)) == 0:
+				parsedPacket = tstruct
+
+		elif reptype == PT_RAMPREP: # Ramp rep
+			tstruct = _FFB_EFF_RAMP()
+			if _vj.Ffb_h_Eff_Ramp(ffbpacket,pointer(tstruct)) == 0:
+				parsedPacket = tstruct
+
+		elif reptype == PT_EFOPREP: # EffOp rep
+			tstruct = _FFB_EFF_OP()
+			if _vj.Ffb_h_EffOp(ffbpacket,pointer(tstruct)) == 0:
+				parsedPacket = tstruct
+
+		elif reptype == PT_PRIDREP: # EffPeriod rep
+			tstruct = _FFB_EFF_PERIOD()
+			if _vj.Ffb_h_Eff_Period(ffbpacket,pointer(tstruct)) == 0:
+				parsedPacket = tstruct
+
+		elif reptype == PT_CONDREP: # Conditional rep
+			tstruct = _FFB_EFF_COND()
+			if _vj.Ffb_h_Eff_Cond(ffbpacket,pointer(tstruct)) == 0:
+				parsedPacket = tstruct
+
+		elif reptype == PT_ENVREP: # Envelope rep
+			tstruct = _FFB_EFF_ENVLP()
+			if _vj.Ffb_h_Eff_Envlp(ffbpacket,pointer(tstruct)) == 0:
+				parsedPacket = tstruct
+
+		elif reptype == PT_NEWEFREP: # NewEff rep
+			neweff = c_int(0)
+			if _vj.Ffb_h_EffNew(ffbpacket,pointer(neweff)) == 0:
+				parsedPacket = neweff.value
+
+		elif reptype == PT_CONSTREP: # Constant force rep
+			tstruct = _FFB_EFF_CONST()
+			if _vj.Ffb_h_Eff_Constant(ffbpacket,pointer(tstruct)) == 0:
+				parsedPacket = tstruct
+
+		elif reptype == PT_GAINREP: # Gain rep
+			gainrep = c_int(0)
+			if _vj.Ffb_h_DevGain(ffbpacket,pointer(gainrep)) == 0:
+				parsedPacket = gainrep.value
+
+		elif reptype == PT_BLKFRREP: # Block free rep
+			blk = c_int(0)
+			if _vj.Ffb_h_EBI(ffbpacket,pointer(blk)) == 0:
+				parsedPacket = blk.value
+
+		return parsedPacket,reptype,devid.value
+	
+	def getCcallback(self):
+		"""Helper function returning the external C-type callback"""
+		return self._internalcb
+
+def FfbRegisterGenCB(func,rID):
+	"""Registers a python FFB callback and translates packets"""
+	if not FFBCallback.vJoy_ffb_callback:
+		FFBCallback.vJoy_ffb_callback = FFBCallback()
+
+	FFBCallback.vJoy_ffb_callback.addCallback(func,rID)
+	devid = c_int(rID)
+	_vj.FfbRegisterGenCB(FFBCallback.vJoy_ffb_callback.getCcallback(),pointer(devid))
+
+def FfbRemoveCB(rID):
+	"""Removes a callback from the helper class"""
+	if FFBCallback.vJoy_ffb_callback:
+		FFBCallback.vJoy_ffb_callback.removeCallback(rID)
+
+def vJoyFfbCap():
+	"""Returns True if vjoy is FFB capable"""
+	ret = c_bool(False)
+	_vj.vJoyFfbCap(pointer(ret))
+	return ret.value
+
+def IsDeviceFfb(rID):
+	"""Returns True if device is FFB capable"""
+	return _vj.IsDeviceFfb(rID) != 0
+
+def IsDeviceFfbEffect(rID, effect):
+	"""Returns True if device supports effect usage type"""
+	return _vj.IsDeviceFfbEffect(rID,effect) != 0

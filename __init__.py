@@ -5,4 +5,4 @@ from pyvjoy.exceptions import *
 
 import pyvjoy._sdk 
 
-from pyvjoy.vjoydevice import VJoyDevice
+from pyvjoy.vjoydevice import VJoyDevice, FFB_Effect_Manager
