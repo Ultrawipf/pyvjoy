@@ -13,7 +13,7 @@ class VJoyDevice(object):
 		self.rID=rID
 		self._sdk=_sdk
 		self._vj=self._sdk._vj
-		
+
 		if data:
 			self.data = data
 		else:
@@ -74,4 +74,37 @@ class VJoyDevice(object):
 		# free up the controller before losing access
 		self._sdk.RelinquishVJD(self.rID)
 		
+		
+	def ffb_supported(self):
+		"""Returns True if device is FFB capable"""
+		return self._sdk.vJoyFfbCap() and self._sdk.IsDeviceFfb(self.rID)
 	
+	def ffb_effect_supported(self,effect):
+		"""Returns True if device supports effect usage type"""
+		return self._sdk.IsDeviceFfbEffect(self.rID,effect)
+	
+	def ffb_register_callback(self,callback):
+		"""Registers a callback for FFB data for this device"""
+		self._sdk.FfbRegisterGenCB(callback,self.rID)
+
+	@staticmethod
+	def ffb_packet_to_dict(data,reptype : int):
+		"""Helper function to convert FFB packets into named python dicts. 
+		Returns dict with single named entry and effect block index if applicable. 
+		Otherwise ebi is 0 for control reports"""
+
+		packetnames = [None,"effect","envelope","cond","period","const","ramp","custom","sample",None,"effop","blkfree","ctrl","gain","setcustom",None,"neweff","blkload","pool"]
+		if reptype >= len(packetnames):
+			return None,0
+		
+		typename = packetnames[reptype]
+		if reptype == _sdk.PT_CONDREP:
+			typename += "Y" if data["isY"] else "X"
+		ebi = 0
+		if isinstance(data,_sdk.PacketStruct):
+			data = data.to_dict()
+			if "EffectBlockIndex" in data:
+				ebi = data["EffectBlockIndex"]
+		ret = {typename:data}
+		
+		return ret,ebi
