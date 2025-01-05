@@ -8,7 +8,13 @@ from pyvjoy.exceptions import *
 
 from ctypes import wintypes	# Makes this lib work in Python36
 
-dll_path = os.path.dirname(__file__) + os.sep + DLL_FILENAME
+# Check if 32bit or 64
+if sys.maxsize > 2**32:
+    arch_folder = 'lib' + os.sep + 'x64'
+else:
+    arch_folder = 'lib' + os.sep + 'x86'
+
+dll_path = os.path.dirname(__file__) + os.sep + arch_folder + os.sep + DLL_FILENAME
 
 try:
 	_vj = cdll.LoadLibrary(dll_path)

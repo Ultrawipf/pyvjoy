@@ -1,3 +1,5 @@
-vJoyInterface.dll
+vJoyInterface.lib
 *.pyc
 *.swp
+dist
+*.egg-info
