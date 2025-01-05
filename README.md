@@ -2,15 +2,17 @@ Forked from [tidzo/pyvjoy](https://github.com/tidzo/pyvjoy) to support FFB callb
 
 Note: FFB support requires a 2.2.x version for the effect block index to work properly.
 The original vJoy project on vjoystick.sourceforge is not being updated anymore and does not support FFB properly. 
-It is recommended to use a fork like [BrunnerInnovation/vJoy](https://github.com/BrunnerInnovation/vJoy)
 
+It is recommended to use a fork like [BrunnerInnovation/vJoy](https://github.com/BrunnerInnovation/vJoy).
+
+The interface dll from this fork is being used for FFB.
 
 With this library you can easily set Axis and Button values on any vJoy device and receive force feedback effect data.
 Low-level bindings are provided in pyvjoy._sdk as well as a (hopefully) slightly more 'Pythonic' API in the pyvjoy.VJoyDevice() object.
 
-Currently vJoyInterface.dll is looked for inside the pyvjoy directory only so place the desired version of that file there to use.
+The usage of non FFB functions is identical to the original pyvJoy project.
 
-The usage of non FFB functions is identical to the original pyVjoy project:
+## Standard pyvjoy usage:
 ```python
 import pyvjoy
 
@@ -44,7 +46,7 @@ j.data.wAxisY= 0x7500
 #send data to vJoy device
 j.update()
 ```
-## Simple FFB callback example: 
+## Simple FFB example with callbacks: 
 ```python
 import pyvjoy
 import time
@@ -57,14 +59,14 @@ j = pyvjoy.VJoyDevice(1)
 # Effect events can be received using the separate callback functions or by overriding update_packet_cb, update_effect_dict_cb or __ffb_cb
 
 class EffMan(pyvjoy.FFB_Effect_Manager):
-    
-    def update_ctrl_cb(self,ctrl): # 1 = enable, 2 = disable
-        print("Control",ctrl)
-    
-    def update_constant_cb(self,data,idx): # Constant force magnitude
-        print("CF",data["Magnitude"])
+	
+	def update_ctrl_cb(self,ctrl): # 1 = enable, 2 = disable
+		print("Control",ctrl)
+	
+	def update_constant_cb(self,data,idx): # Constant force magnitude
+		print("CF",data["Magnitude"])
 
-    # Also implemented (Function dummys from FFB_Effect_Manager class)
+	# Also implemented (Function dummys from FFB_Effect_Manager class)
 	def update_gain_cb(self,gain):
 		"""Gain packet callback. Device gain 0-255"""
 		return
@@ -98,12 +100,12 @@ class EffMan(pyvjoy.FFB_Effect_Manager):
 
 
 if j.ffb_supported(): # Only if FFB is actually enabled in device and driver
-    effectManager1 = EffMan()
-    effectManager1.ffb_register_callback(j)
+	effectManager1 = EffMan()
+	effectManager1.ffb_register_callback(j)
 time.sleep(100)
 print("End")
 ```
-## Low level minimal FFB example:
+## Low level minimal FFB example without creating the FFB_Effect_Manager:
 ```python
 import pyvjoy
 import time
@@ -111,7 +113,7 @@ import time
 j = pyvjoy.VJoyDevice(1)
 
 def ffbcb(data,reptype):
-	packetdict,ebi = FFB_Effect_Manager.ffb_packet_to_dict(data,reptype)
+	packetdict,ebi = pyvjoy.FFB_Effect_Manager.ffb_packet_to_dict(data,reptype)
 	print(packetdict,ebi)
 
 j.ffb_register_callback(ffbcb)
