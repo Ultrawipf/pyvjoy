@@ -209,15 +209,18 @@ class _FFB_EFFECT(PacketStruct):
 	_pack_ = 1
 	_fields_ = [
 		('EffectBlockIndex',c_uint32),
-		('EffectType',c_uint32),
+		('EffectType',c_uint),
 		('Duration',c_uint16),
 		('TriggerRpt',c_uint16),
 		('SamplePrd',c_uint16),
+		('StartDelay',c_uint16),
 		('Gain',c_ubyte),
 		('TriggerBtn',c_ubyte),
-		('Polar',c_uint32), # Bool but 4 bytes padded
-		('DirX',c_byte), # Polar direction or dirX depending on Polar bool
-		('DirY',c_byte),
+		('Polar',c_ubyte), # Axes enable or direction enable (Bit 3)
+		('',c_ubyte), # Reserved padding
+		('',c_uint32), # Reserved padding TODO Seems to contain data
+		('DirX',c_uint16), # Polar direction or dirX depending on Polar.
+		('DirY',c_uint16),
 	]
 
 
