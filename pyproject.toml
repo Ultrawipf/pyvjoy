@@ -8,7 +8,7 @@ where = ["."]  # ["."] by default
 
 [project]
 name = "pyvjoyffb"
-version = "0.2"
+version = "0.3"
 authors = [
   { name="Yannick Richter" },
 ]
@@ -18,7 +18,7 @@ requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
 ]
 
 [project.urls]
