@@ -7,8 +7,8 @@ j = pyvjoy.VJoyDevice(1)
 class EffMan(pyvjoy.FFB_Effect_Manager):
 	 
 	def update_effect_dict_cb(self,packetdict,idx):
-		"""Called after every ffb update with parsed dict by update_packet_cb"""	
-		self.print_effect(self.effects[idx]) # Print current internal effect state
+		"""Called after every ffb update with parsed dict by update_packet_cb"""
+		self.print_effect(self.get_effect(idx)) # Print current internal effect state
 	
 	def update_ctrl_cb(self,ctrl):
 		print("Device control",ctrl)

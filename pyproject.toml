@@ -8,7 +8,7 @@ where = ["."]  # ["."] by default
 
 [project]
 name = "pyvjoyffb"
-version = "0.3"
+version = "0.4"
 authors = [
   { name="Yannick Richter" },
 ]

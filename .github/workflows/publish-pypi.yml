@@ -32,7 +32,7 @@ jobs:
     needs:
     - build
     runs-on: ubuntu-latest
-
+    if: ${{ ! startsWith(github.ref, 'refs/tags/') }}  # only publish to PyPI on non tag pushes
     environment:
       name: testpypi
       url: https://test.pypi.org/p/pyvjoyffb

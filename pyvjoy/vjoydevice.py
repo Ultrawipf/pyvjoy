@@ -88,6 +88,26 @@ class VJoyDevice(object):
 		self._sdk.FfbRegisterGenCB(callback,self.rID)
 
 
+class FFB_Effect(dict):
+	"""Helper class for effect dict with additional methods"""
+	def __init__(self, *args, **kwargs):
+		self.update(*args, **kwargs)
+
+	def effect_get_state(self):
+		"""Gets the current state of an effect dict. False if stopped, True otherwise"""
+		return self.get("effop",{}).get("EffectOp",EFF_STOP) != EFF_STOP
+
+	def get_effect_name(self):
+		"""Extracts effect name from effect dict"""
+		return FFB_Effect_Manager.EFFECTTYPE_TO_NAME[self['effect'].get('EffectType',0)]
+
+	def print_effect(self):
+		"""Helper function to print a single effect dict"""
+		if "effect" in self:
+			effectname = FFB_Effect_Manager.get_effect_name(self)
+			state = FFB_Effect_Manager.effect_get_state(self)
+			print(f"Type: {effectname}, State: {state}, Data: {self}")
+
 
 class FFB_Effect_Manager():
 	"""Helper class that stores the current state of all effects and handles callbacks"""
@@ -105,7 +125,7 @@ class FFB_Effect_Manager():
 		Override to modify if internal state updating is not required"""
 		packetdict,ebi = FFB_Effect_Manager.ffb_packet_to_dict(data,reptype)
 		if len(self.effects) <= idx: # Extend effect storage
-			self.effects.extend([{} for _ in range(1+idx-len(self.effects) ) ] )
+			self.effects.extend([FFB_Effect() for _ in range(1+idx-len(self.effects) ) ] )
 
 		self.effects[idx].update(packetdict)
 		self.update_effect_dict_cb(packetdict,idx)
@@ -150,6 +170,12 @@ class FFB_Effect_Manager():
 	def update_ramp_cb(self,data,idx):
 		"""Set ramp callback"""
 		return
+	
+	def get_effect(self,idx):
+		"""Returns effect object at idx if present"""
+		if idx < len(self.effects):
+			return self.effects[idx]
+		return None
 
 
 	def __ffb_cb(self,data,reptype):
@@ -211,29 +237,28 @@ class FFB_Effect_Manager():
 			data = data.to_dict()
 			if "EffectBlockIndex" in data:
 				ebi = data["EffectBlockIndex"]
-		ret = {typename:data}
+		ret = FFB_Effect({typename:data})
+		
 		return ret,ebi
 
 	@staticmethod
-	def effect_get_state(effect : dict):
+	def effect_get_state(effect : FFB_Effect):
 		"""Gets the current state of an effect dict. False if stopped, True otherwise"""
-		return effect.get("effop",{}).get("EffectOp",EFF_STOP) != EFF_STOP
+		return FFB_Effect.effect_get_state(effect)
 	
 	@staticmethod
-	def get_effect_name(effect : dict):
+	def get_effect_name(effect : FFB_Effect):
 		"""Extracts effect name from effect dict"""
-		return FFB_Effect_Manager.EFFECTTYPE_TO_NAME[effect['effect'].get('EffectType',0)]
+		return FFB_Effect.get_effect_name(effect)
 
 	@staticmethod
-	def print_effect(effect):
+	def print_effect(effect : FFB_Effect):
 		"""Helper function to print a single effect dict"""
-		if effect and "effect" in effect:
-			effectname = FFB_Effect_Manager.get_effect_name(effect)
-			state = FFB_Effect_Manager.effect_get_state(effect)
-			print(f"Type: {effectname}, State: {state}, Data: {effect}")
+		FFB_Effect.print_effect(effect)
 
 	@staticmethod
 	def print_effects(effects):
 		"""Helper function to print all current effect data"""
 		for effect in effects:
 			FFB_Effect_Manager.print_effect(effect)
+
